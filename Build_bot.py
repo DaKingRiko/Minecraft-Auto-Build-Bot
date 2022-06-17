@@ -2,17 +2,40 @@ import time
 import keyboard # pip3 install keyboard 
 import pyautogui
 import math
+import random
 import PIL
 import atexit
 from functools import partial
 PIL.ImageGrab.grab = partial(PIL.ImageGrab.grab, all_screens=True)
 
-def changePictureToGrid(increments, imageName, startColors):
+'''
+Goals for today:
+
++  Make it work while flying
+_  clean up output image
+_  get a second output image that shows what colors to get
+_  make background clear
+'''
+
+def notinvisited(position, visited):
+    for it in visited:
+        if position[0] == it[0] and position[1] == it[1]:       
+            return False
+    return True
+
+def restIsZero(arr, start):
+    for i in range(start, len(arr)):
+        if arr[i] != 0:
+            return False
+    return True
+
+def changePictureToGrid(increments, imageName, startColors, clearBackGround):
     #myScreenshot = pyautogui.screenshot()
     image = PIL.Image.open(imageName)
     width, height = image.size
     pixelizedImage = PIL.Image.new('RGB', (width,height))
     increments = int(width / increments) + 1
+    backGroundColor = [255,255,255]
     finArr = [[0 for x in range(int(width / increments))] for y in range(int(width / increments))] 
     for i in range(0, int(width / increments)):
         for j in range(0, int(height / increments)):
@@ -46,7 +69,30 @@ def changePictureToGrid(increments, imageName, startColors):
             for pixX in range(i* increments, i* increments + increments):
                 for pixY in range(j* increments, j* increments + increments):
                     pixelizedImage.putpixel((int(pixX ),int(pixY )),(int(average[0]),int(average[1]),int(average[2])))
-    pixelizedImage.save('pixelized.png')   
+    pixelizedImage.save('pixelized.png')  
+    if clearBackGround:
+        backGroundColor = finArr[0][0]
+        finArr[0][0] = 0
+        queue = [[0,0]]
+        visited = []
+        arrLen = len(finArr)
+        while len(queue) > 0: # BFS algorithm to find the backbround and clear it
+            if queue[0][0] + 1 < arrLen and finArr[queue[0][0] + 1][queue[0][1]] == backGroundColor and notinvisited(queue[0],visited):
+                finArr[queue[0][0] + 1][queue[0][1]] = 0 
+                queue.append([queue[0][0] + 1, queue[0][1]])
+            if queue[0][1] + 1 < arrLen and finArr[queue[0][0]][queue[0][1] + 1] == backGroundColor and notinvisited(queue[0],visited):
+                finArr[queue[0][0]][queue[0][1] + 1] = 0 
+                queue.append([queue[0][0], queue[0][1] + 1])
+            if queue[0][0] - 1 > 0 and finArr[queue[0][0] - 1][queue[0][1]] == backGroundColor and notinvisited(queue[0],visited):
+                finArr[queue[0][0] - 1][queue[0][1]] = 0 
+                queue.append([queue[0][0] - 1, queue[0][1]])
+            if queue[0][1] - 0 > 0 and finArr[queue[0][0]][queue[0][1] - 1] == backGroundColor and notinvisited(queue[0],visited):
+                finArr[queue[0][0]][queue[0][1] - 1] = 0 
+                queue.append([queue[0][0], queue[0][1] - 1])
+            visited.append(queue[0])
+            queue.pop(0)
+
+    #print(finArr)
     return finArr
 
 print("=== Start ===")
@@ -56,10 +102,18 @@ print("=== Start ===")
 startColors = {1:(253,241,1),2:(84,185,72),3:(54,111,47),
              4:(255,255,255),5:(80,165,220),6:(159,113,54), 
              7:(171,26,31),8:(67,123,160),9:(121,124,127)}
-itemArray = changePictureToGrid(20, "sample.jpg", startColors)
+charmander = {
+    1:(253,241,1), # yellow
+    2:(243,119,53), # orange
+    3:(244,67,54), # red
+    4:(0,0,0),
+    5:(255,255,255)
+}
+size = 24
+itemArray = changePictureToGrid(size, "sample.png", charmander, True)
 
 time.sleep(4)
-print("gonna click")
+print("Click on '~' to start the building once you are inside Minecraft")
 '''pyautogui.press('D', presses=10)
 for i in range(0,30):
     pyautogui.click(button='right') 
@@ -71,9 +125,42 @@ for i in range(0,30):
     else:
         pyautogui.press('6')
 '''
-timeout = .131
+
+while(True):
+    if (keyboard.is_pressed("~")):
+        print("Let's get this bot started")
+        time.sleep(.5)
+        break
+'''
+#test
+t = .4
+for cc in range(2):
+    for i in range(25):
+        pyautogui.press(str(random.randint(1,9)))
+        pyautogui.click(button='right') 
+        pyautogui.keyDown('D')
+        pyautogui.keyUp('D')
+        time.sleep(t)
+        
+        if i == 10 or i == 22:
+            pyautogui.keyDown('A')
+            pyautogui.keyUp('A')
+
+    pyautogui.keyDown('S')
+    pyautogui.keyUp('S')  
+
+    pyautogui.keyDown('A')
+    time.sleep(5)
+    pyautogui.keyUp('A')
+''' 
+
+'''
+# Old way of doing movement and block placement
+timeout = .132
 for i in range(0,len(itemArray)):
     for j in range(0,len(itemArray)):
+        if (keyboard.is_pressed("~")):
+            exit()
         if i % 2 == 0: 
             pyautogui.press(str(itemArray[i][j]))
         else:
@@ -98,5 +185,37 @@ for i in range(0,len(itemArray)):
         pyautogui.keyDown('A')
         time.sleep(timeout)
         pyautogui.keyUp('A')
+'''
+
+t = .4
+for i in range(0,len(itemArray)):
+    for j in range(0,len(itemArray)):
+        if (keyboard.is_pressed("~")):
+            print("STOP")
+            exit()
+        if restIsZero(itemArray[i],j):
+            continue
+        if itemArray[i][j] != 0:
+            pyautogui.press(str(itemArray[i][j]))
+            pyautogui.click(button='right') 
+        else:
+            pyautogui.press('=')
+        pyautogui.keyDown('D')
+        pyautogui.keyUp('D')
+        time.sleep(t)
+        
+        if j == 10 or j == 22:
+            pyautogui.keyDown('A')
+            pyautogui.keyUp('A')
+
+    pyautogui.keyDown('S')
+    pyautogui.keyUp('S')  
+
+    pyautogui.keyDown('A')
+    time.sleep(.12 * j)
+    pyautogui.keyUp('A')
+    '''if i == 10 or i == 22:
+        pyautogui.keyDown('W')
+        pyautogui.keyUp('W')'''
 
 print("=== Done ===")
