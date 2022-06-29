@@ -1,18 +1,17 @@
 import time
 import keyboard # pip3 install keyboard 
-import pyautogui
+import pyautogui  # pip3 install pyautogui 
 import math
-import random
+from colors import *
 import PIL
-import atexit
 from functools import partial
 PIL.ImageGrab.grab = partial(PIL.ImageGrab.grab, all_screens=True)
 
 '''
 Goals for today:
 
-+  clean up output image
 _  get a second output image that shows what colors to get
+_  have the bot give put the needed blocks into your inventory
 '''
 
 '''
@@ -36,6 +35,124 @@ def restIsZero(arr, start):
         if arr[i] != 0:
             return False
     return True
+
+'''
+function that looks at the png and finds the 9 most common colors for you
+@increments : size of your pixelized image in Minecraft blocks. has to be square
+@imageName : name of image you are pixelizing
+@availableColors : the Minecraft Block colors that are using
+@clearBackGround : Boolean that makes your background to be ignored
+@edge : The amount of pixels ignored when looking at the inside of the colors
+'''
+def findColorBlocks(increments, imageName, availableColors, clearBackGround, edge):
+    image = PIL.Image.open(imageName)
+    width, height = image.size
+    increments = int(width / increments) 
+    newWidth = width - (width % increments)
+    newHeight = height - (height % increments)
+    pixelizedImage = PIL.Image.new('RGB', (newWidth,newHeight))
+    
+    finalColors = {}
+    finalBlocks = []
+    blocksPos = [["" for x in range(int(width / increments))] for y in range(int(width / increments))] 
+    colInstances = {}
+    for colName in availableColors.keys():
+        colInstances[colName] = 0
+    
+    for i in range(0, int(width / increments)):
+        for j in range(0, int(height / increments)):
+            average = [0,0,0]
+            for pixX in range(i * increments + edge, i* increments + increments - edge):
+                for pixY in range(j * increments + edge, j * increments + increments - edge):
+                    pixel = image.getpixel((pixX , pixY ))
+                    average[0] += pixel[0]
+                    average[1] += pixel[1]
+                    average[2] += pixel[2]
+            newinc = increments - edge * 2
+            average[0] /= (newinc * newinc)
+            average[1] /= (newinc * newinc)
+            average[2] /= (newinc * newinc)
+
+            mindiff = 1000000
+            use = ""
+            #print(average) # find closest available color
+            for colName, it in availableColors.items():
+                newdiff = math.sqrt( abs(math.pow(it[0] - average[0],2) + math.pow(it[1] - average[1],2) + math.pow(it[2] - average[2],2) )) #  sqrt((r2-r1)^2 + (g2-g1)^2 + (b2-b1)^2)
+                if newdiff < mindiff:
+                    #print("u r dumbass")
+                    mindiff = newdiff
+                    use = colName
+            #print(availableColors[use])
+            average[0] = availableColors[use][0]
+            average[1] = availableColors[use][1]
+            average[2] = availableColors[use][2]
+            blocksPos[i][j] = use
+            colInstances[use] += 1
+
+    # if you want a clear background, do a bfs to count how many background color pixels you have and subtract them from ther total count
+    if clearBackGround:
+        backGroundColor = blocksPos[0][0]
+        extraCol = 0
+        queue = [[0,0],[len(blocksPos) - 1, len(blocksPos) - 1],[0,len(blocksPos) - 1],[len(blocksPos) - 1,0]]
+        visited = []
+        arrLen = len(blocksPos)
+        while len(queue) > 0: # BFS algorithm to find the backbround and clear it
+            if queue[0][0] + 1 < arrLen and blocksPos[queue[0][0] + 1][queue[0][1]] == backGroundColor and notinvisited(queue[0],visited):
+                extraCol += 1
+                queue.append([queue[0][0] + 1, queue[0][1]])
+            if queue[0][1] + 1 < arrLen and blocksPos[queue[0][0]][queue[0][1] + 1] == backGroundColor and notinvisited(queue[0],visited):
+                extraCol += 1
+                queue.append([queue[0][0], queue[0][1] + 1])
+            if queue[0][0] - 1 > 0 and blocksPos[queue[0][0] - 1][queue[0][1]] == backGroundColor and notinvisited(queue[0],visited):
+                extraCol += 1
+                queue.append([queue[0][0] - 1, queue[0][1]])
+            if queue[0][1] - 0 > 0 and blocksPos[queue[0][0]][queue[0][1] - 1] == backGroundColor and notinvisited(queue[0],visited):
+                extraCol += 1
+                queue.append([queue[0][0], queue[0][1] - 1])
+            visited.append(queue[0])
+            queue.pop(0)
+        
+        colInstances[backGroundColor] -= extraCol # account for the background counting towards certain colors
+
+    # make sure you look at correct length
+    colLen = 0
+    for cool, numInstanceColor in colInstances.items():
+        if numInstanceColor != 0:
+            colLen += 1
+    # if you have less than 10 colors, you are done
+    print(colLen)
+    print(colInstances)
+    if colLen < 10:
+        count = 1
+        for key, val in colInstances.items():
+            if val != 0:
+                finalColors[count] = (availableColors[key][0],availableColors[key][1],availableColors[key][2])
+                count += 1
+                #print(finalColors)
+                for k2,v2 in availableColors.items():
+                    if availableColors[key][0] == v2[0] and availableColors[key][1] == v2[1] and availableColors[key][2] == v2[2]:
+                        finalBlocks.append(k2)
+                        break
+    else:
+        # do work to find out what the rest of the top 9 colors approximate to
+        print(colLen)
+        print(colInstances)
+
+    # Make picture at the end
+    for i in range(0, int(width / increments)):
+        for j in range(0, int(height / increments)):
+            for pixX in range(i* increments, i* increments + increments):
+                for pixY in range(j* increments, j* increments + increments):
+                    av = availableColors[blocksPos[i][j]]
+                    pixelizedImage.putpixel((int(pixX ),int(pixY )),(int(av[0]),int(av[1]),int(av[2])))
+    pixelizedImage.save('minecrafted.png')  
+    # trigger earlier to remove a color
+    print("+++ colors:")
+    print(finalColors)
+    print("+++ block:")
+    print(finalBlocks)
+
+    return finalColors, finalBlocks
 
 '''
 function that pixelizes a png
@@ -216,22 +333,15 @@ kyogre = {
     8:(65,90,148), # dark blue
     9:(82,82,82) #dark gray
 }
-size = 35
-itemArray = changePictureToGrid(size, "kyogre.png", kyogre, True, 8)
+
+size = 18
+image = "assets/totodile.png"
+bestColors, BlockNames = findColorBlocks(size, image, AVAILABLE_COLORS, True, 8)
+itemArray = changePictureToGrid(size, image, bestColors, True, 8)
 #itemArray = usePreExisting( size, "pixelized.png", mercy, True)
 
 print("Click on '~' to start the building once you are inside Minecraft")
-'''pyautogui.press('D', presses=10)
-for i in range(0,30):
-    pyautogui.click(button='right') 
-    pyautogui.keyDown('D')
-    time.sleep(timeout)
-    pyautogui.keyUp('D')
-    if i % 2 == 0:
-        pyautogui.press('3')
-    else:
-        pyautogui.press('6')
-'''
+print("Make sure you are flying, pointing downwards, have a 0 degree view angle on the x and z axis, and that you have a wall to prevent you from flying off")
 
 while(True):
     if (keyboard.is_pressed("~")):
@@ -239,6 +349,7 @@ while(True):
         time.sleep(.5)
         break
 
+# Code for building the image in Minecraft
 t = .5
 for i in range(0,len(itemArray)):
     for j in range(0,len(itemArray)):
