@@ -18,11 +18,7 @@ AVAILABLE_COLORS = {
     "Brown Concrete":(95,57,25),
     "Green Concrete":(72,91,31),
     "Red Concrete"	:(255,0,0),# real (142,27,27),
-    "Black Concrete":(0,0,0)# (1,2,6)
-   
-}
-
-'''
+    "Black Concrete":(0,0,0),# (1,2,6)
     # Terracotta
     "Terracotta":(152,94,67),
     "White Terracotta":(207,175,158),
@@ -58,4 +54,7 @@ AVAILABLE_COLORS = {
     "Green Wool":(84,110,20),
     "Red Wool":(161,34,29),
     "Black Wool":(13,13,18)
-'''
+}
+
+
+    
