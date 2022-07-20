@@ -13,14 +13,13 @@ PIL.ImageGrab.grab = partial(PIL.ImageGrab.grab, all_screens=True)
 '''
 Goals for today:
 
-+  stabilize building
 _  get input picture from google
 _  get walking to work as an option
 _  make setup script that gets you all blocks 
-_  add self adjusting angle at the beggining of the build
+x  add self adjusting angle at the beggining of the build
 _  add more colors as options
-_  try correcting pytesseract errors when reading weird text
-_  when backGroundClear is enabled make sure to skip initial clear blocks too
+?  try correcting pytesseract errors when reading weird text
++  when backGroundClear is enabled make sure to skip initial clear blocks too
 '''
 
 '''
@@ -195,7 +194,7 @@ def GetBlocksFromInventory(colors):
 '''
 function that takes a screenshot and looks at player coordinates, and returns the x and z coordinates
 '''
-def readCoordinates(mult):
+def readCoordinates(mult,prev):
     myScreenshot = pyautogui.screenshot()
     #myScreenshot.save('screen.png') 
     #im = PIL.Image.open("screen2.png")
@@ -208,22 +207,29 @@ def readCoordinates(mult):
     pytesseract.tesseract_cmd = path_to_tesseract
     #Open image with PIL
     #Extract text from image
-    text = pytesseract.image_to_string(im1, lang='mc', config='--psm 13 -c tessedit_char_whitelist=0123456789.-/')
-    print(text)
-    coords = text.split(" ")
-    if len(coords) >= 3:
-        if len(mult) == 0:
-            if coords[0].split(' ')[0].startswith('-'):
-                mult.append(-1)
-            else:
-                mult.append(1)
-            if coords[2].split(' ')[0].startswith('-'):
-                mult.append(-1)
-            else:
-                mult.append(1)
-        return [mult[0] * int(coords[0].split(' ')[0].replace("-", "").replace(" ", "")),mult[1] * int(coords[2].split(' ')[0].replace("-", "").replace(" ", "")),mult[0],mult[1]]
-    else:
-        return []
+    try:
+        text = pytesseract.image_to_string(im1, lang='mc', config='--psm 13 -c tessedit_char_whitelist=0123456789.-/')
+        #print(text)
+        coords = text.split(" ")
+        if len(coords) >= 3:
+            if len(mult) == 0:
+                if coords[0].split(' ')[0].startswith('-'):
+                    mult.append(-1)
+                else:
+                    mult.append(1)
+                if coords[2].split(' ')[0].startswith('-'):
+                    mult.append(-1)
+                else:
+                    mult.append(1)
+            return [mult[0] * int(coords[0].split(' ')[0].replace("-", "").replace(" ", "")),mult[1] * int(coords[2].split(' ')[0].replace("-", "").replace(" ", "")),mult[0],mult[1]]
+        else:
+            prev[1] += 1
+            print("COORDINATE READING FAILED")
+            return prev # to prevent it from crashing, pretend it worked properly for now TODO make this better
+    except:
+        prev[1] += 1
+        print("COORDINATE READING FAILED")
+        return prev
 
 print("=== Start with an empty inventory ===")
 
@@ -251,12 +257,13 @@ while(True):
             time.sleep(.5)
             break
 
-starting = readCoordinates([])
+starting = readCoordinates([],[])
 current = [starting[0],starting[1],starting[2],starting[3]]
 print(starting)
 # Code for building the image in Minecraft
 t = 0.1
 currhand = ""
+skip = 0
 for i in range(0,len(itemArray)):
     #print(itemArray[i][0])
     #print(len(itemArray[i][0]))
@@ -270,13 +277,13 @@ for i in range(0,len(itemArray)):
     pyautogui.keyDown('D')
     time.sleep(t)
     pyautogui.keyUp('D')
-    for j in range(1,len(itemArray)):
+    for j in range(1 + skip,len(itemArray)):
         if (keyboard.is_pressed("~")): 
             print("STOP")
             exit()
         if restIsZero(itemArray[i],j):
             continue
-        newPos = readCoordinates([current[2],current[3]])
+        newPos = readCoordinates([current[2],current[3]],current)
         print(newPos)
         while newPos[0] != current[0] + 1:
             print("adjust")
@@ -289,7 +296,7 @@ for i in range(0,len(itemArray)):
                 time.sleep(t)
                 pyautogui.keyUp('A')
             
-            newPos = readCoordinates([current[2],current[3]])
+            newPos = readCoordinates([current[2],current[3]],current)
             print(newPos)
         if len(itemArray[i][j]) > 0:
             next = AVAILABLE_COLORS_LOCATION[itemArray[i][j]]
@@ -305,7 +312,7 @@ for i in range(0,len(itemArray)):
     pyautogui.keyDown('S') 
     time.sleep(t)
     pyautogui.keyUp('S') 
-    newPos = readCoordinates([current[2],current[3]])
+    newPos = readCoordinates([current[2],current[3]],current)
     while newPos[1] != current[1] + 1:
         print("adjust y")
         if newPos[1] <= current[1]: # check for z too and newPos[1] == current[1]:
@@ -317,37 +324,47 @@ for i in range(0,len(itemArray)):
             time.sleep(t)
             pyautogui.keyUp('W')
         
-        newPos = readCoordinates([current[2],current[3]])
+        newPos = readCoordinates([current[2],current[3]],current)
         print(newPos)
-    pyautogui.keyDown('A') 
-    time.sleep(0.1 * j)
-    pyautogui.keyUp('A') 
-    newPos = readCoordinates([current[2],current[3]])
-    
-    while newPos[0] != starting[0]:
+      
+    if background and i + 1 < len(itemArray): # if the back ground is clear, skip the rows that are transparent
+        print(itemArray[i +1 ])
+        skip = 0
+        for extra in itemArray[i + 1]:
+            if extra == "":
+                print("skipped ")
+                skip += 1 
+            else:
+                break
+        if skip > 1:
+            skip -= 1
+        current[0] = starting[0] + skip
+        print(current)
+    else:
+        # go far to the left
+        pyautogui.keyDown('A') 
+        time.sleep(0.1 * j)
+        pyautogui.keyUp('A') 
+        newPos = readCoordinates([current[2],current[3]],current)
+
+        current[0] = starting[0]
+        current[1] = starting[1]
+    print("should be ")
+    print(current)
+    print("is be ")
+    print(newPos)
+    while newPos[0] != current[0]:
         print("adjust end")
-        if newPos[0] < starting[0]: 
+        if newPos[0] < current[0]: 
             pyautogui.keyDown('D')
             time.sleep(t)
             pyautogui.keyUp('D')
-        elif newPos[0] > starting[0]: 
+        elif newPos[0] > current[0]: 
             pyautogui.keyDown('A')
             time.sleep(t)
             pyautogui.keyUp('A')
-        newPos = readCoordinates([current[2],current[3]])
-        print(newPos)
-    if background: # if the back ground is clear, skip the rows that are transparent
-        print(itemArray[i])
-        for extra in itemArray[i]:
-            if extra == "":
-                print("skipped ")
-                newPos[1] += 1 
-            else:
-                break
-    current[0] = newPos[0]
-    current[1] = newPos[1]
-    print(current)
-    
-   
+        newPos = readCoordinates([current[2],current[3]], newPos) # this will break shit lol
+        print("fin")
+        print(newPos)  
 
 print("=== Done ===")
