@@ -20,6 +20,7 @@ x  add self adjusting angle at the beggining of the build
 _  add more colors as options
 ?  try correcting pytesseract errors when reading weird text
 +  when backGroundClear is enabled make sure to skip initial clear blocks too
+_  MAKE IT FASTER. make it work backwards on odd rows
 '''
 
 '''
@@ -68,6 +69,11 @@ def changePictureToGrid(increments, imageName, startColors, clearBackground,  ed
             for pixX in range(i * increments + edge, i* increments + increments - edge):
                 for pixY in range(j * increments + edge, j * increments + increments - edge):
                     pixel = image.getpixel((pixX , pixY ))
+                    #print(pixX)
+                    #print(pixY)
+                    if isinstance(pixel,int):
+                        temp = pixel
+                        pixel = [temp,temp,temp]
                     average[0] += pixel[0]
                     average[1] += pixel[1]
                     average[2] += pixel[2]
@@ -198,10 +204,10 @@ def readCoordinates(mult,prev):
     myScreenshot = pyautogui.screenshot()
     #myScreenshot.save('screen.png') 
     #im = PIL.Image.open("screen2.png")
-    im1 = myScreenshot.crop((3575, 424, 3835 ,457)) #1926 388 | 2618 420 | 2712 NEW 3575 424 | 3835 457 | 3478 . old: (2006, 385, 2712, 425) 
+    im1 = myScreenshot.crop((3530, 424, 3835 ,457)) #1926 388 | 2618 420 | 2712 NEW 3575 424 | 3835 457 | 3478 . old: (2006, 385, 2712, 425) 
     width, height = im1.size
     im1 = im1.resize((width*2,height*2))
-    #im1.save("crop.png")
+    im1.save("crops.png")
 
     path_to_tesseract = "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
     pytesseract.tesseract_cmd = path_to_tesseract
@@ -209,7 +215,7 @@ def readCoordinates(mult,prev):
     #Extract text from image
     try:
         text = pytesseract.image_to_string(im1, lang='mc', config='--psm 13 -c tessedit_char_whitelist=0123456789.-/')
-        #print(text)
+        print(text)
         coords = text.split(" ")
         if len(coords) >= 3:
             if len(mult) == 0:
@@ -223,11 +229,11 @@ def readCoordinates(mult,prev):
                     mult.append(1)
             return [mult[0] * int(coords[0].split(' ')[0].replace("-", "").replace(" ", "")),mult[1] * int(coords[2].split(' ')[0].replace("-", "").replace(" ", "")),mult[0],mult[1]]
         else:
-            prev[1] += 1
+            prev[0] += 1
             print("COORDINATE READING FAILED")
             return prev # to prevent it from crashing, pretend it worked properly for now TODO make this better
     except:
-        prev[1] += 1
+        prev[0] += 1
         print("COORDINATE READING FAILED")
         return prev
 
@@ -245,7 +251,7 @@ else:
     print("You need to pass 3 arguments, size of build in minecraft, image name, and clearBackground (1 to enable)")
     exit()
 
-itemArray = changePictureToGrid(size, image, AVAILABLE_COLORS, background, 8)
+itemArray = changePictureToGrid(size, image, AVAILABLE_COLORS, background, 4)
 #itemArray = usePreExisting( size, "pixelized.png", mercy, True)
 
 print("Click on '~' to start the building once you are inside Minecraft")
@@ -257,7 +263,7 @@ while(True):
             time.sleep(.5)
             break
 
-starting = readCoordinates([],[])
+starting = readCoordinates([],[187,196,-1,1])
 current = [starting[0],starting[1],starting[2],starting[3]]
 print(starting)
 # Code for building the image in Minecraft
@@ -326,7 +332,9 @@ for i in range(0,len(itemArray)):
         
         newPos = readCoordinates([current[2],current[3]],current)
         print(newPos)
-      
+
+    if background and restIsZero(itemArray[i + 1],0):
+        continue
     if background and i + 1 < len(itemArray): # if the back ground is clear, skip the rows that are transparent
         print(itemArray[i +1 ])
         skip = 0
