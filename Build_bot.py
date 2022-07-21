@@ -16,11 +16,10 @@ Goals for today:
 _  get input picture from google
 _  get walking to work as an option
 _  make setup script that gets you all blocks 
-x  add self adjusting angle at the beggining of the build
 _  add more colors as options
 ?  try correcting pytesseract errors when reading weird text
-+  when backGroundClear is enabled make sure to skip initial clear blocks too
 _  MAKE IT FASTER. make it work backwards on odd rows
+_  add a fast option where it inputs setblock commands
 '''
 
 '''
@@ -39,10 +38,15 @@ checks if the rest of the array is full of zeroes. Used for clearing backgrounds
 @arr : array we are checking
 @start : position we are starting to check at
 '''
-def restIsZero(arr, start):
-    for i in range(start, len(arr)):
-        if len(arr[i]) > 0:
-            return False
+def restIsZero(arr, start, order):
+    if order == 1:
+        for i in range(start, len(arr)):
+            if len(arr[i]) > 0:
+                return False
+    else:
+        for i in range(0, start):
+            if len(arr[i]) > 0:
+                return False
     return True
 
 '''
@@ -128,42 +132,6 @@ def changePictureToGrid(increments, imageName, startColors, clearBackground,  ed
     return finArr
 
 '''
-function that lets you use a existing png instead of computing it from scratch
-@image : the file you want to reuse
-'''
-def usePreExisting(increments, imageName, startColors):
-    image = PIL.Image.open(imageName)
-    width, height = image.size
-    
-    backGroundColor = [255,255,255]
-    finArr = [[0 for x in range(increments)] for y in range(increments)] 
-    for i in range(0, increments):
-        for j in range(0, increments):
-            average = [0,0,0]
-            pixel = image.getpixel((i * increments + (increments / 2) , j * increments + (increments / 2) ))
-
-            average[0] = pixel[0]
-            average[1] = pixel[1]
-            average[2] = pixel[2]
-
-            mindiff = 1000000
-            use = 0
-            #print(average)
-            for pos, it in startColors.items():
-                newdiff = math.sqrt( abs(math.pow(it[0] - average[0],2) + math.pow(it[1] - average[1],2) + math.pow(it[2] - average[2],2) )) #  sqrt((r2-r1)^2 + (g2-g1)^2 + (b2-b1)^2)
-                if newdiff < mindiff:
-                    mindiff = newdiff
-                    use = pos
-            #print(startColors[use])
-            average[0] = startColors[use][0]
-            average[1] = startColors[use][1]
-            average[2] = startColors[use][2]
-            finArr[i][j] = use
- 
-    print(finArr)
-    return finArr
-
-'''
 function that gets all of your blocks for you in Minecraft. Make sure you have an empty inventory to make this work.
 '''
 def GetBlocksFromInventory(colors):
@@ -215,7 +183,7 @@ def readCoordinates(mult,prev):
     #Extract text from image
     try:
         text = pytesseract.image_to_string(im1, lang='mc', config='--psm 13 -c tessedit_char_whitelist=0123456789.-/')
-        print(text)
+        #print(text)
         coords = text.split(" ")
         if len(coords) >= 3:
             if len(mult) == 0:
@@ -237,31 +205,47 @@ def readCoordinates(mult,prev):
         print("COORDINATE READING FAILED")
         return prev
 
+# used to end program if '~' key is detected
+def listenEnd(mytime):
+    if (keyboard.is_pressed("~")): 
+        print("=== This took " + str(time.time() - mytime) + " seconds ===")
+        exit()
+
+mytime = time.time()
 print("=== Start with an empty inventory ===")
 
 size = 0
 image = ""
 background = False
+fast = False
 
-if len(sys.argv) == 4:
+if len(sys.argv) >= 3:
     size = int(sys.argv[1])
     image = "assets/" + sys.argv[2] + ".png"
-    background = (sys.argv[3] == '1')
+    background = ('-back' in sys.argv)
+    fast = ('-fast' in sys.argv)
 else:
-    print("You need to pass 3 arguments, size of build in minecraft, image name, and clearBackground (1 to enable)")
+    print("You need to pass at least 2 arguments: size of build in minecraft, and source image name.")
+    print("Optional Arguments: to have a clear Background (-back), and option to make the building fast (-fast)")
     exit()
 
-itemArray = changePictureToGrid(size, image, AVAILABLE_COLORS, background, 4)
+itemArray = changePictureToGrid(size, image, AVAILABLE_COLORS, background, 0)
 #itemArray = usePreExisting( size, "pixelized.png", mercy, True)
 
 print("Click on '~' to start the building once you are inside Minecraft")
 print("Make sure you are on the ground, pointing in front of you, have a 0 degree view angle on the x and z axis, and that you have a wall to prevent you from walking off")
-
+print("=== This first computation took " + str(time.time() - mytime) + " seconds ===")
 while(True):
         if (keyboard.is_pressed("~")):
             print("Let's get this bot started")
             time.sleep(.5)
             break
+
+mytime = time.time()
+if fast:
+    print("The bot will instead type in commands to build the image for you") # TODO finish this
+    print("=== This took " + str(time.time() - mytime) + " seconds ===")
+    exit()
 
 starting = readCoordinates([],[187,196,-1,1])
 current = [starting[0],starting[1],starting[2],starting[3]]
@@ -271,41 +255,12 @@ t = 0.1
 currhand = ""
 skip = 0
 for i in range(0,len(itemArray)):
-    #print(itemArray[i][0])
-    #print(len(itemArray[i][0]))
-    if len(itemArray[i][0]) > 0:
-        #print("here")
-        next = AVAILABLE_COLORS_LOCATION[itemArray[i][0]]
-        with pyautogui.hold('X'):
-            pyautogui.press([next[0]])
-        pyautogui.press(next[1])
-        pyautogui.click(button='right')
-    pyautogui.keyDown('D')
-    time.sleep(t)
-    pyautogui.keyUp('D')
-    for j in range(1 + skip,len(itemArray)):
-        if (keyboard.is_pressed("~")): 
-            print("STOP")
-            exit()
-        if restIsZero(itemArray[i],j):
-            continue
-        newPos = readCoordinates([current[2],current[3]],current)
-        print(newPos)
-        while newPos[0] != current[0] + 1:
-            print("adjust")
-            if newPos[0] <= current[0]: # check for z tooand newPos[1] == current[1]:
-                pyautogui.keyDown('D')
-                time.sleep(t)
-                pyautogui.keyUp('D')
-            elif newPos[0] >= current[0] + 2: # check for z tooand newPos[1] == current[1]:
-                pyautogui.keyDown('A')
-                time.sleep(t)
-                pyautogui.keyUp('A')
-            
-            newPos = readCoordinates([current[2],current[3]],current)
-            print(newPos)
-        if len(itemArray[i][j]) > 0:
-            next = AVAILABLE_COLORS_LOCATION[itemArray[i][j]]
+    if i % 2 == 0: # GOING LEFT TO RIGHT => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => 
+        print(itemArray[i][0])
+        #print(len(itemArray[i][0]))
+        if len(itemArray[i][skip]) > 0:
+            #print("here")
+            next = AVAILABLE_COLORS_LOCATION[itemArray[i][skip]]
             with pyautogui.hold('X'):
                 pyautogui.press([next[0]])
             pyautogui.press(next[1])
@@ -313,66 +268,201 @@ for i in range(0,len(itemArray)):
         pyautogui.keyDown('D')
         time.sleep(t)
         pyautogui.keyUp('D')
-        current = newPos
-
-    pyautogui.keyDown('S') 
-    time.sleep(t)
-    pyautogui.keyUp('S') 
-    newPos = readCoordinates([current[2],current[3]],current)
-    while newPos[1] != current[1] + 1:
-        print("adjust y")
-        if newPos[1] <= current[1]: # check for z too and newPos[1] == current[1]:
-            pyautogui.keyDown('S')
-            time.sleep(t)
-            pyautogui.keyUp('S')
-        elif newPos[1] >= current[1] + 2: # check for z too and newPos[1] == current[1]:
-            pyautogui.keyDown('W')
-            time.sleep(t)
-            pyautogui.keyUp('W')
-        
-        newPos = readCoordinates([current[2],current[3]],current)
-        print(newPos)
-
-    if background and restIsZero(itemArray[i + 1],0):
-        continue
-    if background and i + 1 < len(itemArray): # if the back ground is clear, skip the rows that are transparent
-        print(itemArray[i +1 ])
-        skip = 0
-        for extra in itemArray[i + 1]:
-            if extra == "":
-                print("skipped ")
-                skip += 1 
-            else:
-                break
-        if skip > 1:
-            skip -= 1
-        current[0] = starting[0] + skip
-        print(current)
-    else:
-        # go far to the left
-        pyautogui.keyDown('A') 
-        time.sleep(0.1 * j)
-        pyautogui.keyUp('A') 
-        newPos = readCoordinates([current[2],current[3]],current)
-
-        current[0] = starting[0]
-        current[1] = starting[1]
-    print("should be ")
-    print(current)
-    print("is be ")
-    print(newPos)
-    while newPos[0] != current[0]:
-        print("adjust end")
-        if newPos[0] < current[0]: 
+        for j in range(1 + skip,len(itemArray)):
+            listenEnd(mytime)
+            if restIsZero(itemArray[i],j,1):
+                continue
+            newPos = readCoordinates([current[2],current[3]],current)
+            print(newPos)
+            while newPos[0] != current[0] + 1:
+                listenEnd(mytime)
+                print("adjust")
+                if newPos[0] <= current[0]: # check for z tooand newPos[1] == current[1]:
+                    pyautogui.keyDown('D')
+                    time.sleep(t)
+                    pyautogui.keyUp('D')
+                elif newPos[0] >= current[0] + 2: # check for z tooand newPos[1] == current[1]:
+                    pyautogui.keyDown('A')
+                    time.sleep(t)
+                    pyautogui.keyUp('A')
+                
+                newPos = readCoordinates([current[2],current[3]],current)
+                print(newPos)
+            if len(itemArray[i][j]) > 0:
+                next = AVAILABLE_COLORS_LOCATION[itemArray[i][j]]
+                with pyautogui.hold('X'):
+                    pyautogui.press([next[0]])
+                pyautogui.press(next[1])
+                pyautogui.click(button='right')
             pyautogui.keyDown('D')
             time.sleep(t)
             pyautogui.keyUp('D')
-        elif newPos[0] > current[0]: 
+            current = newPos
+
+        pyautogui.keyDown('S') 
+        time.sleep(t)
+        pyautogui.keyUp('S') 
+        newPos = readCoordinates([current[2],current[3]],current)
+        while newPos[1] != current[1] + 1:
+            listenEnd(mytime)
+            print("adjust y")
+            if newPos[1] <= current[1]: # check for z too and newPos[1] == current[1]:
+                pyautogui.keyDown('S')
+                time.sleep(t)
+                pyautogui.keyUp('S')
+            elif newPos[1] >= current[1] + 2: # check for z too and newPos[1] == current[1]:
+                pyautogui.keyDown('W')
+                time.sleep(t)
+                pyautogui.keyUp('W')
+            
+            newPos = readCoordinates([current[2],current[3]],current)
+            print(newPos)
+
+        if background and i + 1 < len(itemArray): # if the back ground is clear, skip the rows that are transparent
+            if restIsZero(itemArray[i + 1],0,1):
+                continue
+            print("NEXT COLORS:")
+            print(itemArray[i +1 ]) # print next colors
+            skip = 0
+            for extra in reversed(itemArray[i + 1]):
+                if extra == "":
+                    print("skipped ")
+                    skip += 1 
+                else:
+                    break
+            skip += 1
+            current[0] = starting[0] + size - skip
+            print(current)
+        else:
+            # go far to the left
+            pyautogui.keyDown('A') 
+            time.sleep(0.1 * j)
+            pyautogui.keyUp('A') 
+            newPos = readCoordinates([current[2],current[3]],current)
+
+            current[0] = starting[0]
+            current[1] = starting[1]
+        print("should be ")
+        print(current)
+        print("is be ")
+        print(newPos)
+        while newPos[0] != current[0]:
+            listenEnd(mytime)
+            print("adjust end")
+            if newPos[0] < current[0]: 
+                pyautogui.keyDown('D')
+                time.sleep(t)
+                pyautogui.keyUp('D')
+            elif newPos[0] > current[0]: 
+                pyautogui.keyDown('A')
+                time.sleep(t)
+                pyautogui.keyUp('A')
+            newPos = readCoordinates([current[2],current[3]], newPos) # this will break shit lol
+            print("fin")
+            print(newPos)  
+    else: # GOING RIGHT TO LEFT <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= 
+        if len(itemArray[i][len(itemArray) - 1 - skip]) > 0:
+            next = AVAILABLE_COLORS_LOCATION[itemArray[i][len(itemArray) - 1 - skip]]
+            with pyautogui.hold('X'):
+                pyautogui.press([next[0]])
+            pyautogui.press(next[1])
+            pyautogui.click(button='right')
+        pyautogui.keyDown('A')
+        time.sleep(t)
+        pyautogui.keyUp('A')
+        for j in reversed(range(-1 ,len(itemArray) - skip )): # TODO might need to adjust by 1
+            print("rev j: " + str(j))
+            listenEnd(mytime)
+            if restIsZero(itemArray[i],j,-1):  ###
+                continue
+            newPos = readCoordinates([current[2],current[3]],current)
+            print(newPos)
+            while newPos[0] != current[0] - 1:
+                listenEnd(mytime)
+                print("adjust")
+                if newPos[0] >= current[0]: # check for z tooand newPos[1] == current[1]:
+                    pyautogui.keyDown('A')
+                    time.sleep(t)
+                    pyautogui.keyUp('A')
+                elif newPos[0] <= current[0] - 2: # check for z tooand newPos[1] == current[1]:
+                    pyautogui.keyDown('D')
+                    time.sleep(t)
+                    pyautogui.keyUp('D')
+                
+                newPos = readCoordinates([current[2],current[3]],current)
+                print(newPos)
+            if len(itemArray[i][j]) > 0:
+                next = AVAILABLE_COLORS_LOCATION[itemArray[i][j]]
+                with pyautogui.hold('X'):
+                    pyautogui.press([next[0]])
+                pyautogui.press(next[1])
+                pyautogui.click(button='right')
             pyautogui.keyDown('A')
             time.sleep(t)
             pyautogui.keyUp('A')
-        newPos = readCoordinates([current[2],current[3]], newPos) # this will break shit lol
-        print("fin")
-        print(newPos)  
+            current = newPos
+        exit()
+        pyautogui.keyDown('S') 
+        time.sleep(t)
+        pyautogui.keyUp('S') 
+        newPos = readCoordinates([current[2],current[3]],current)
+        while newPos[1] != current[1] + 1:
+            listenEnd(mytime)
+            print("adjust y")
+            if newPos[1] <= current[1]: # check for z too and newPos[1] == current[1]:
+                pyautogui.keyDown('S')
+                time.sleep(t)
+                pyautogui.keyUp('S')
+            elif newPos[1] >= current[1] + 2: # check for z too and newPos[1] == current[1]:
+                pyautogui.keyDown('W')
+                time.sleep(t)
+                pyautogui.keyUp('W')
+            
+            newPos = readCoordinates([current[2],current[3]],current)
+            print(newPos)
 
+        if background and i + 1 < len(itemArray): # if the back ground is clear, skip the rows that are transparent
+            if restIsZero(itemArray[i + 1],0,-1):
+                continue
+            print(itemArray[i +1 ])
+            skip = 0
+            for extra in itemArray[i + 1]:
+                if extra == "":
+                    print("skipped ")
+                    skip += 1 
+                else:
+                    break
+            if skip > 1:
+                skip -= 1
+            current[0] = starting[0] + skip
+            print(current)
+        else:
+            # go far to the left
+            pyautogui.keyDown('D') 
+            time.sleep(0.1 * j)
+            pyautogui.keyUp('D') 
+            newPos = readCoordinates([current[2],current[3]],current)
+
+            current[0] = starting[0]
+            current[1] = starting[1]
+        print("should be ")
+        print(current)
+        print("is be ")
+        print(newPos)
+        while newPos[0] != current[0]:
+            listenEnd(mytime)
+            print("adjust end")
+            if newPos[0] < current[0]: 
+                pyautogui.keyDown('D')
+                time.sleep(t)
+                pyautogui.keyUp('D')
+            elif newPos[0] > current[0]: 
+                pyautogui.keyDown('A')
+                time.sleep(t)
+                pyautogui.keyUp('A')
+            newPos = readCoordinates([current[2],current[3]], newPos) # this will break shit lol
+            print("fin")
+            print(newPos)  
+tottime = time.time() - mytime
+print("=== This took " + str(tottime / 60) + " minutes " + str(tottime % 60) + " seconds ===")
 print("=== Done ===")
