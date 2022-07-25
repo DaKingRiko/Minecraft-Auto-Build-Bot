@@ -44,7 +44,7 @@ def restIsZero(arr, start, order):
             if len(arr[i]) > 0:
                 return False
     else:
-        for i in range(0, start):
+        for i in range(0, start + 1):
             if len(arr[i]) > 0:
                 return False
     return True
@@ -154,7 +154,7 @@ def GetBlocksFromInventory(colors):
 
     count = 1
     for color in colors:
-        print(color)
+        #print(color)
         pyautogui.write(color) 
         if color.startswith("Blue"): # blue has weird case
             pyautogui.moveTo(684, 361, .01)
@@ -225,7 +225,7 @@ def adjustMCXPosition(newPos, current, t):
         if (keyboard.is_pressed("~")): 
             print("STOP")
             exit()
-        print("adjust x")
+        #print("adjust x")
         if newPos[0] < current[0]: # check for z tooand newPos[1] == current[1]:
             pyautogui.keyDown('D')
             time.sleep(t)
@@ -236,7 +236,7 @@ def adjustMCXPosition(newPos, current, t):
             pyautogui.keyUp('A')
         
         newPos = readCoordinates([current[2],current[3]],current)
-        print(newPos)
+        #print(newPos)
     return newPos
 
 '''
@@ -250,7 +250,7 @@ def adjustMCZPosition(newPos, current, t):
         if (keyboard.is_pressed("~")): 
             print("STOP")
             exit()
-        print("adjust z")
+        #print("adjust z")
         if newPos[1] < current[1]: # check for z too and newPos[1] == current[1]:
             pyautogui.keyDown('S')
             time.sleep(t)
@@ -261,7 +261,7 @@ def adjustMCZPosition(newPos, current, t):
             pyautogui.keyUp('W')
         
         newPos = readCoordinates([current[2],current[3]],current)
-        print(newPos)
+        #print(newPos)
     return newPos
 
 '''
@@ -326,32 +326,59 @@ if fast:
 
 starting = readCoordinates([],[])
 current = [starting[0],starting[1],starting[2],starting[3]]
-print(starting)
+#print(starting)
 # Code for building the image in Minecraft
 t = 0.07
 currhand = ""
 skip = 0
+newPos = []
 
 for i in range(0,len(itemArray)):
     if i % 2 == 0:
-        for j in range(0,len(itemArray)):
+        for j in range(skip,len(itemArray)):
+            if restIsZero(itemArray[i],j,1):
+                newPos = readCoordinates([current[2],current[3]],current)
+                break
             rightClick(itemArray[i][j])
+            if j >= len(itemArray) - 1:
+                newPos = readCoordinates([current[2],current[3]],current)
+                break
             moveMC('D', t)
             newPos = readCoordinates([current[2],current[3]],current)
             newPos = adjustMCXPosition(newPos, [current[0] + 1,current[1],current[2],current[3]], t)
             current = newPos
         newPos = adjustMCZPosition(newPos, [current[0],current[1] + 1,current[2],current[3]], t)
-        newPos = adjustMCXPosition(newPos, [starting[0] + len(itemArray) - 1,current[1],current[2],current[3]], t)
+        skip = 0
+        if i + 1 < len(itemArray):
+            for nextit in reversed(itemArray[i+1]):
+                if nextit == '':
+                    skip += 1
+                else:
+                    break
+        newPos = adjustMCXPosition(newPos, [starting[0] + len(itemArray) - 1 - skip,current[1],current[2],current[3]], t)
         current = newPos
     else:
-        for j in reversed(range(0,len(itemArray))):
+        for j in reversed(range(0,len(itemArray) - skip)):
+            if restIsZero(itemArray[i],j,0):
+                newPos = readCoordinates([current[2],current[3]],current)
+                break
             rightClick(itemArray[i][j])
+            if j <= 0:
+                newPos = readCoordinates([current[2],current[3]],current)
+                break
             moveMC('A', t)
             newPos = readCoordinates([current[2],current[3]],current)
             newPos = adjustMCXPosition(newPos, [current[0] - 1,current[1],current[2],current[3]], t)
             current = newPos
         newPos = adjustMCZPosition(newPos, [current[0],current[1] + 1,current[2],current[3]], t)
-        newPos = adjustMCXPosition(newPos, starting, t)
+        skip = 0
+        if i + 1 < len(itemArray):
+            for nextit in itemArray[i+1]:
+                if nextit == '':
+                    skip += 1
+                else:
+                    break
+        newPos = adjustMCXPosition(newPos, [starting[0] + skip,current[1],current[2],current[3]], t)
         current = newPos   
 
 tottime = time.time() - mytime
