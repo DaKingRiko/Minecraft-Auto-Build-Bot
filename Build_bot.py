@@ -109,6 +109,9 @@ def changePictureToGrid(increments, imageName, startColors, clearBackground,  ed
     if clearBackground:
         backGroundColor = finArr[0][0]
         finArr[0][0] = ""
+        finArr[len(finArr) - 1][ len(finArr) - 1] = ""
+        finArr[0][len(finArr) - 1] = ""
+        finArr[len(finArr) - 1][0] = ""
         queue = [[0,0],[len(finArr) - 1, len(finArr) - 1],[0,len(finArr) - 1],[len(finArr) - 1,0]]
         visited = []
         arrLen = len(finArr)
@@ -211,6 +214,80 @@ def listenEnd(mytime):
         print("=== This took " + str(time.time() - mytime) + " seconds ===")
         exit()
 
+'''
+function that adjusts your current Minecraft player position to be the same as current
+@newPos : your position
+@current : goal position
+@t : time to sleep in between walks
+'''
+def adjustMCXPosition(newPos, current, t):
+    while newPos[0] != current[0]:
+        if (keyboard.is_pressed("~")): 
+            print("STOP")
+            exit()
+        print("adjust x")
+        if newPos[0] < current[0]: # check for z tooand newPos[1] == current[1]:
+            pyautogui.keyDown('D')
+            time.sleep(t)
+            pyautogui.keyUp('D')
+        elif newPos[0] > current[0]: # check for z tooand newPos[1] == current[1]:
+            pyautogui.keyDown('A')
+            time.sleep(t)
+            pyautogui.keyUp('A')
+        
+        newPos = readCoordinates([current[2],current[3]],current)
+        print(newPos)
+    return newPos
+
+'''
+function that adjusts your current Minecraft player position to be the same as current
+@newPos : your position
+@current : goal position
+@t : time to sleep in between walks
+'''
+def adjustMCZPosition(newPos, current, t):
+    while newPos[1] != current[1]:
+        if (keyboard.is_pressed("~")): 
+            print("STOP")
+            exit()
+        print("adjust z")
+        if newPos[1] < current[1]: # check for z too and newPos[1] == current[1]:
+            pyautogui.keyDown('S')
+            time.sleep(t)
+            pyautogui.keyUp('S')
+        elif newPos[1] > current[1]: # check for z too and newPos[1] == current[1]:
+            pyautogui.keyDown('W')
+            time.sleep(t)
+            pyautogui.keyUp('W')
+        
+        newPos = readCoordinates([current[2],current[3]],current)
+        print(newPos)
+    return newPos
+
+'''
+helper function to make the program less lines of code
+@key : key to press
+@t: time to wait until press is done
+'''
+def moveMC(key, t):
+    pyautogui.keyDown(key)
+    time.sleep(t)
+    pyautogui.keyUp(key)
+
+'''
+function to place block in MC
+@item: string that represents the color that should be placed
+'''
+def rightClick(item):
+    if len(item) > 0:
+        next = AVAILABLE_COLORS_LOCATION[item]
+        with pyautogui.hold('X'):
+            pyautogui.press([next[0]])
+        pyautogui.press(next[1])
+        pyautogui.click(button='right')
+
+############################################################ MAIN PROGRAM START ####################################################################################
+
 mytime = time.time()
 print("=== Start with an empty inventory ===")
 
@@ -247,222 +324,36 @@ if fast:
     print("=== This took " + str(time.time() - mytime) + " seconds ===")
     exit()
 
-starting = readCoordinates([],[187,196,-1,1])
+starting = readCoordinates([],[])
 current = [starting[0],starting[1],starting[2],starting[3]]
 print(starting)
 # Code for building the image in Minecraft
-t = 0.1
+t = 0.07
 currhand = ""
 skip = 0
+
 for i in range(0,len(itemArray)):
-    if i % 2 == 0: # GOING LEFT TO RIGHT => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => => 
-        print(itemArray[i][0])
-        #print(len(itemArray[i][0]))
-        if len(itemArray[i][skip]) > 0:
-            #print("here")
-            next = AVAILABLE_COLORS_LOCATION[itemArray[i][skip]]
-            with pyautogui.hold('X'):
-                pyautogui.press([next[0]])
-            pyautogui.press(next[1])
-            pyautogui.click(button='right')
-        pyautogui.keyDown('D')
-        time.sleep(t)
-        pyautogui.keyUp('D')
-        for j in range(1 + skip,len(itemArray)):
-            listenEnd(mytime)
-            if restIsZero(itemArray[i],j,1):
-                continue
+    if i % 2 == 0:
+        for j in range(0,len(itemArray)):
+            rightClick(itemArray[i][j])
+            moveMC('D', t)
             newPos = readCoordinates([current[2],current[3]],current)
-            print(newPos)
-            while newPos[0] != current[0] + 1:
-                listenEnd(mytime)
-                print("adjust")
-                if newPos[0] <= current[0]: # check for z tooand newPos[1] == current[1]:
-                    pyautogui.keyDown('D')
-                    time.sleep(t)
-                    pyautogui.keyUp('D')
-                elif newPos[0] >= current[0] + 2: # check for z tooand newPos[1] == current[1]:
-                    pyautogui.keyDown('A')
-                    time.sleep(t)
-                    pyautogui.keyUp('A')
-                
-                newPos = readCoordinates([current[2],current[3]],current)
-                print(newPos)
-            if len(itemArray[i][j]) > 0:
-                next = AVAILABLE_COLORS_LOCATION[itemArray[i][j]]
-                with pyautogui.hold('X'):
-                    pyautogui.press([next[0]])
-                pyautogui.press(next[1])
-                pyautogui.click(button='right')
-            pyautogui.keyDown('D')
-            time.sleep(t)
-            pyautogui.keyUp('D')
+            newPos = adjustMCXPosition(newPos, [current[0] + 1,current[1],current[2],current[3]], t)
             current = newPos
-
-        pyautogui.keyDown('S') 
-        time.sleep(t)
-        pyautogui.keyUp('S') 
-        newPos = readCoordinates([current[2],current[3]],current)
-        while newPos[1] != current[1] + 1:
-            listenEnd(mytime)
-            print("adjust y")
-            if newPos[1] <= current[1]: # check for z too and newPos[1] == current[1]:
-                pyautogui.keyDown('S')
-                time.sleep(t)
-                pyautogui.keyUp('S')
-            elif newPos[1] >= current[1] + 2: # check for z too and newPos[1] == current[1]:
-                pyautogui.keyDown('W')
-                time.sleep(t)
-                pyautogui.keyUp('W')
-            
+        newPos = adjustMCZPosition(newPos, [current[0],current[1] + 1,current[2],current[3]], t)
+        newPos = adjustMCXPosition(newPos, [starting[0] + len(itemArray) - 1,current[1],current[2],current[3]], t)
+        current = newPos
+    else:
+        for j in reversed(range(0,len(itemArray))):
+            rightClick(itemArray[i][j])
+            moveMC('A', t)
             newPos = readCoordinates([current[2],current[3]],current)
-            print(newPos)
-
-        if background and i + 1 < len(itemArray): # if the back ground is clear, skip the rows that are transparent
-            if restIsZero(itemArray[i + 1],0,1):
-                continue
-            print("NEXT COLORS:")
-            print(itemArray[i +1 ]) # print next colors
-            skip = 0
-            for extra in reversed(itemArray[i + 1]):
-                if extra == "":
-                    print("skipped ")
-                    skip += 1 
-                else:
-                    break
-            skip += 1
-            current[0] = starting[0] + size - skip
-            print(current)
-        else:
-            # go far to the left
-            pyautogui.keyDown('A') 
-            time.sleep(0.1 * j)
-            pyautogui.keyUp('A') 
-            newPos = readCoordinates([current[2],current[3]],current)
-
-            current[0] = starting[0]
-            current[1] = starting[1]
-        print("should be ")
-        print(current)
-        print("is be ")
-        print(newPos)
-        while newPos[0] != current[0]:
-            listenEnd(mytime)
-            print("adjust end")
-            if newPos[0] < current[0]: 
-                pyautogui.keyDown('D')
-                time.sleep(t)
-                pyautogui.keyUp('D')
-            elif newPos[0] > current[0]: 
-                pyautogui.keyDown('A')
-                time.sleep(t)
-                pyautogui.keyUp('A')
-            newPos = readCoordinates([current[2],current[3]], newPos) # this will break shit lol
-            print("fin")
-            print(newPos)  
-    else: # GOING RIGHT TO LEFT <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= <= 
-        if len(itemArray[i][len(itemArray) - 1 - skip]) > 0:
-            next = AVAILABLE_COLORS_LOCATION[itemArray[i][len(itemArray) - 1 - skip]]
-            with pyautogui.hold('X'):
-                pyautogui.press([next[0]])
-            pyautogui.press(next[1])
-            pyautogui.click(button='right')
-        pyautogui.keyDown('A')
-        time.sleep(t)
-        pyautogui.keyUp('A')
-        for j in reversed(range(-1 ,len(itemArray) - skip )): # TODO might need to adjust by 1
-            print("rev j: " + str(j))
-            listenEnd(mytime)
-            if restIsZero(itemArray[i],j,-1):  ###
-                continue
-            newPos = readCoordinates([current[2],current[3]],current)
-            print(newPos)
-            while newPos[0] != current[0] - 1:
-                listenEnd(mytime)
-                print("adjust")
-                if newPos[0] >= current[0]: # check for z tooand newPos[1] == current[1]:
-                    pyautogui.keyDown('A')
-                    time.sleep(t)
-                    pyautogui.keyUp('A')
-                elif newPos[0] <= current[0] - 2: # check for z tooand newPos[1] == current[1]:
-                    pyautogui.keyDown('D')
-                    time.sleep(t)
-                    pyautogui.keyUp('D')
-                
-                newPos = readCoordinates([current[2],current[3]],current)
-                print(newPos)
-            if len(itemArray[i][j]) > 0:
-                next = AVAILABLE_COLORS_LOCATION[itemArray[i][j]]
-                with pyautogui.hold('X'):
-                    pyautogui.press([next[0]])
-                pyautogui.press(next[1])
-                pyautogui.click(button='right')
-            pyautogui.keyDown('A')
-            time.sleep(t)
-            pyautogui.keyUp('A')
+            newPos = adjustMCXPosition(newPos, [current[0] - 1,current[1],current[2],current[3]], t)
             current = newPos
-        exit()
-        pyautogui.keyDown('S') 
-        time.sleep(t)
-        pyautogui.keyUp('S') 
-        newPos = readCoordinates([current[2],current[3]],current)
-        while newPos[1] != current[1] + 1:
-            listenEnd(mytime)
-            print("adjust y")
-            if newPos[1] <= current[1]: # check for z too and newPos[1] == current[1]:
-                pyautogui.keyDown('S')
-                time.sleep(t)
-                pyautogui.keyUp('S')
-            elif newPos[1] >= current[1] + 2: # check for z too and newPos[1] == current[1]:
-                pyautogui.keyDown('W')
-                time.sleep(t)
-                pyautogui.keyUp('W')
-            
-            newPos = readCoordinates([current[2],current[3]],current)
-            print(newPos)
+        newPos = adjustMCZPosition(newPos, [current[0],current[1] + 1,current[2],current[3]], t)
+        newPos = adjustMCXPosition(newPos, starting, t)
+        current = newPos   
 
-        if background and i + 1 < len(itemArray): # if the back ground is clear, skip the rows that are transparent
-            if restIsZero(itemArray[i + 1],0,-1):
-                continue
-            print(itemArray[i +1 ])
-            skip = 0
-            for extra in itemArray[i + 1]:
-                if extra == "":
-                    print("skipped ")
-                    skip += 1 
-                else:
-                    break
-            if skip > 1:
-                skip -= 1
-            current[0] = starting[0] + skip
-            print(current)
-        else:
-            # go far to the left
-            pyautogui.keyDown('D') 
-            time.sleep(0.1 * j)
-            pyautogui.keyUp('D') 
-            newPos = readCoordinates([current[2],current[3]],current)
-
-            current[0] = starting[0]
-            current[1] = starting[1]
-        print("should be ")
-        print(current)
-        print("is be ")
-        print(newPos)
-        while newPos[0] != current[0]:
-            listenEnd(mytime)
-            print("adjust end")
-            if newPos[0] < current[0]: 
-                pyautogui.keyDown('D')
-                time.sleep(t)
-                pyautogui.keyUp('D')
-            elif newPos[0] > current[0]: 
-                pyautogui.keyDown('A')
-                time.sleep(t)
-                pyautogui.keyUp('A')
-            newPos = readCoordinates([current[2],current[3]], newPos) # this will break shit lol
-            print("fin")
-            print(newPos)  
 tottime = time.time() - mytime
-print("=== This took " + str(tottime / 60) + " minutes " + str(tottime % 60) + " seconds ===")
+print("=== This took " + str((tottime - tottime % 60) / 60) + " minutes " + str(tottime % 60) + " seconds ===")
 print("=== Done ===")
