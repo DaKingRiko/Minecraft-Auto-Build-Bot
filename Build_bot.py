@@ -301,6 +301,13 @@ if len(sys.argv) >= 3:
     image = "assets/" + sys.argv[2] + ".png"
     background = ('-back' in sys.argv)
     fast = ('-fast' in sys.argv)
+elif len(sys.argv) == 2:
+    if sys.argv[1] == "getblocks":
+        print("Getting Blocks Now")
+        GetBlocksFromInventory(AVAILABLE_COLORS)
+    else:
+        print("If you want to get the blocks you need to add 'getblocks' to the command")
+    exit()
 else:
     print("You need to pass at least 2 arguments: size of build in minecraft, and source image name.")
     print("Optional Arguments: to have a clear Background (-back), and option to make the building fast (-fast)")
