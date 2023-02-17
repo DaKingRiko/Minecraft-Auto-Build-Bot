@@ -7,8 +7,12 @@ import math
 from colors import *
 import PIL
 from functools import partial
-from pytesseract import pytesseract
+from pytesseract import pytesseract # pip install pytesseract
 PIL.ImageGrab.grab = partial(PIL.ImageGrab.grab, all_screens=True)
+from stl import mesh
+from mpl_toolkits import mplot3d
+from matplotlib import pyplot
+import numpy
 
 '''
 Goals for today:
@@ -106,6 +110,19 @@ def changePictureToGrid(increments, imageName, startColors, clearBackground,  ed
                 for pixY in range(j* increments, j* increments + increments):
                     pixelizedImage.putpixel((int(pixX ),int(pixY )),(int(average[0]),int(average[1]),int(average[2])))
     pixelizedImage.save('pixelized.png')  
+    
+    size = 18
+    width, height = img.size
+    ccc = 0
+    for i in range(size):
+        for j in range(size): #99, 42, 9
+            for inc in range(int(width / size)):
+                pixelizedImage.putpixel((int(i*(width / size )),int(j*(width / size )+ inc)),(99, 42, 9))
+                pixelizedImage.putpixel((int(j*(width / size )+ inc),int(i*(width / size ))),(99, 42, 9))
+            #img.save(("gridgif/trygrid" + str(ccc) + ".png"))
+            ccc += 1
+    #pixelizedImage.save(("griddy" + str(ccc) + ".png"))
+    
     if clearBackground:
         backGroundColor = finArr[0][0]
         finArr[0][0] = ""
@@ -175,7 +192,7 @@ def readCoordinates(mult,prev):
     myScreenshot = pyautogui.screenshot()
     #myScreenshot.save('screen.png') 
     #im = PIL.Image.open("screen2.png")
-    im1 = myScreenshot.crop((3530, 424, 3835 ,457)) #1926 388 | 2618 420 | 2712 NEW 3575 424 | 3835 457 | 3478 . old: (2006, 385, 2712, 425) 
+    im1 = myScreenshot.crop((2146, 532, 2382, 565)) #1926 388 | 2618 420 | 2712 NEW 3575 424 | 3835 457 | 3478 . old: (2006, 385, 2712, 425) 1.12: 2146 532 2382 565
     width, height = im1.size
     im1 = im1.resize((width*2,height*2))
     im1.save("crops.png")
@@ -186,7 +203,7 @@ def readCoordinates(mult,prev):
     #Extract text from image
     try:
         text = pytesseract.image_to_string(im1, lang='mc', config='--psm 13 -c tessedit_char_whitelist=0123456789.-/')
-        #print(text)
+        print(text)
         coords = text.split(" ")
         if len(coords) >= 3:
             if len(mult) == 0:
@@ -200,6 +217,9 @@ def readCoordinates(mult,prev):
                     mult.append(1)
             return [mult[0] * int(coords[0].split(' ')[0].replace("-", "").replace(" ", "")),mult[1] * int(coords[2].split(' ')[0].replace("-", "").replace(" ", "")),mult[0],mult[1]]
         else:
+            print(text[0:4])
+            print(text[5:8])
+            return [mult[0] * int(text[0:4]),mult[1] * int(text[5:8]),mult[0],mult[1]]
             prev[0] += 1
             print("COORDINATE READING FAILED")
             return prev # to prevent it from crashing, pretend it worked properly for now TODO make this better
@@ -286,6 +306,108 @@ def rightClick(item):
         pyautogui.press(next[1])
         pyautogui.click(button='right')
 
+def getWrittenCommand(block,i,j,k=4,useDict=True):
+    mycommand = "setblock ~" + str(i + 2) + " " + str(k) +" ~" + str(j + 2) + " minecraft:"
+    if useDict:
+        if "Wool" in block:
+            mycommand += "wool "
+        elif "Terracotta" in block:
+            mycommand += "stained_hardened_clay "
+        # pick color
+        if "Light" in block:
+            if "Blue" in block:
+                mycommand += "3"
+            elif "Gray" in block:
+                mycommand += "8"
+        else:
+            mycommand += str(PLAIN_COLOR[ block.split(" ")[0]])
+    else:
+        mycommand += block
+    #print(mycommand)
+    pyautogui.press('/') 
+    pyautogui.write(mycommand)
+    pyautogui.press('enter') 
+
+############################################################ NEW STL CODE ####################################################################################
+
+def bounding_box(points):
+    '''
+    Calculate the bounding box edge lengths of an stl using the design coordinate system (not an object oriented bounding box),
+    expect that input coordinates are in mm.
+    '''
+    v = points
+    x = v[..., 0].flatten()
+    y = v[..., 1].flatten()
+    z = v[..., 2].flatten()
+    return (x.max()-x.min(), y.max()-y.min(), z.max()-z.min())
+
+def get_min(points):
+    '''
+    Calculate the minimum coordinates of your stl,
+    expect that input coordinates are in mm.
+    '''
+    v = points
+    x = v[..., 0].flatten()
+    y = v[..., 1].flatten()
+    z = v[..., 2].flatten()
+    return (x.min(), y.min(), z.min())
+
+def getSTLarray(filename,STLX,STLY,STLZ):
+    # Create a new plot
+    figure = pyplot.figure()
+    axes = figure.add_subplot(projection='3d')
+
+    # Load the STL files and add the vectors to the plot
+    your_mesh = mesh.Mesh.from_file(filename)
+    axes.add_collection3d(mplot3d.art3d.Poly3DCollection(your_mesh.vectors))
+
+    # Auto scale to the mesh size
+    scale = your_mesh.points.flatten()
+    axes.auto_scale_xyz(scale, scale, scale)
+
+    minVals = get_min(your_mesh.points)
+    #print(minVals)
+    LENGTHS = bounding_box(your_mesh.points)
+    #print(LENGTHS)
+
+    v = your_mesh.points
+    x = v[..., 0].flatten()
+    y = v[..., 1].flatten()
+    z = v[..., 2].flatten()
+    try:
+        myw,myl,myh = STLX,STLY,STLZ
+        scx,scy,scz = LENGTHS[0]/myw,LENGTHS[1]/myl,LENGTHS[2]/myh
+        pamounts = numpy.zeros([myw,myl,myh])
+        err = 0
+        #print(pamounts)
+        #print("x {} y {} z {}".format(len(x),len(y),len(z)))
+        for i in range(0,len(x)): # 10):#
+            #print("x {} min {} scale {}".format(x[i],minVals[0],scx))
+            corx = int( (x[i] - minVals[0]) / scx)
+            cory = int( (y[i] - minVals[1]) / scy)
+            corz = int( (z[i] - minVals[2]) / scz)
+            #print("nx {} ny {} nz {}".format(corx,cory,corz))
+            if corx >= myw or cory >= myl or corz >= myh :
+                err += 1
+            else:
+                pamounts[corx,cory,corz] += 1
+
+        #print("Errs {}".format(err))
+        #print(pamounts)
+        limit = int(len(x) / (myw*myl*myh ))
+        #print(limit)
+        fin = numpy.zeros([myw,myl,myh])
+        for i in range(0,myw):
+            for j in range(0,myl):
+                for k in range(0,myh):
+                    if pamounts[i,j,k] >= limit:
+                        fin[i,j,k] += 1
+        #print(fin)
+        return fin
+    except Exception as e:
+        print(e)
+        exit()
+
 ############################################################ MAIN PROGRAM START ####################################################################################
 
 mytime = time.time()
@@ -297,24 +419,88 @@ background = False
 fast = False
 
 if len(sys.argv) >= 3:
-    size = int(sys.argv[1])
-    image = "assets/" + sys.argv[2] + ".png"
-    background = ('-back' in sys.argv)
-    fast = ('-fast' in sys.argv)
-elif len(sys.argv) == 2:
-    if sys.argv[1] == "getblocks":
-        print("Getting Blocks Now")
-        GetBlocksFromInventory(AVAILABLE_COLORS)
-    else:
-        print("If you want to get the blocks you need to add 'getblocks' to the command")
-    exit()
+    stl = ('-stl' in sys.argv)
+    if not stl:
+        size = int(sys.argv[1])
+        image = "assets/" + sys.argv[2] + ".png"
+        background = ('-back' in sys.argv)
+        fast = ('-fast' in sys.argv)
 else:
     print("You need to pass at least 2 arguments: size of build in minecraft, and source image name.")
     print("Optional Arguments: to have a clear Background (-back), and option to make the building fast (-fast)")
+    print("\n    Example: python ./Build_Bot.py 20 image.png -back -fast\n")
+    print("If You want to build in 3D, use the -stl option, then give a file name, 3 dimensions, and a block name (without the minecraft part)")
+    print("\n    Example: python ./Build_Bot.py -stl object.stl 10 10 10 stone\n")
     exit()
+
+####################################
+# STL Handler for 3D
+####################################
+
+if stl:
+    if len(sys.argv) >= 7:
+        #print(sys.argv)
+        file = sys.argv[2] + ".stl"
+        STLX = int(sys.argv[3])
+        STLY = int(sys.argv[4])
+        STLZ = int(sys.argv[5])
+        STL_BLOCK = sys.argv[6]
+    else:
+        print("You need to pass at least 5 arguments: source file name, desired Minecraft block Width, Depth, Height, and Block to use.")
+        print("\n    Example: python ./Build_Bot.py -stl object.stl 10 10 10 stone\n")
+        exit()
+
+    stlArr = getSTLarray(file,STLX,STLY,STLZ)
+    #print(stlArr)
+
+    print("Click on '~' to start the building once you are inside Minecraft")
+    print("=== This first computation took " + str(time.time() - mytime) + " seconds ===")
+    while(True):
+            if (keyboard.is_pressed("~")):
+                print("Let's get this bot started")
+                time.sleep(.5)
+                break
+    #print("x {} y {} z {} block {}".format(STLX,STLY,STLZ,STL_BLOCK))
+    mytime = time.time()
+    for i in range(0,STLX):
+        for j in range(0,STLY):
+            for k in range(0,STLZ):
+                if (keyboard.is_pressed("*")): 
+                    print("STOP")
+                    exit()
+                #print("i {} j {} k {} val {}".format(i,j,k,stlArr[i,j,k] ))
+                if stlArr[i,j,k] == 1:
+                    #print("heya")
+                    getWrittenCommand(STL_BLOCK,i,j,k + 4,useDict=False)
+
+    print("=== This took " + str(time.time() - mytime) + " seconds ===")
+    exit()
+
+    
+
+
+####################################
+# Grid code
+####################################
+img = PIL.Image.open(image)
+width, height = img.size
+ccc = 0
+for i in range(size):
+    for j in range(size): #99, 42, 9
+        for inc in range(int(width / size)):
+            img.putpixel((int(i*(width / size )),int(j*(width / size )+ inc)),(99, 42, 9))
+            img.putpixel((int(j*(width / size )+ inc),int(i*(width / size ))),(99, 42, 9))
+        #img.save(("gridgif/trygrid" + str(ccc) + ".png"))
+        ccc += 1
+#img.save(("griddy" + str(ccc) + ".png"))
+####################################     
+
+
 
 itemArray = changePictureToGrid(size, image, AVAILABLE_COLORS, background, 0)
 #itemArray = usePreExisting( size, "pixelized.png", mercy, True)
+#myScreenshot = pyautogui.screenshot()
+#myScreenshot.save('sshot112.png') # 2146 532 2382 565
 
 print("Click on '~' to start the building once you are inside Minecraft")
 print("Make sure you are on the ground, pointing in front of you, have a 0 degree view angle on the x and z axis, and that you have a wall to prevent you from walking off")
@@ -327,11 +513,20 @@ while(True):
 
 mytime = time.time()
 if fast:
-    print("The bot will instead type in commands to build the image for you") # TODO finish this
+    print("The bot will instead type in commands to build the image for you") 
+    for i in range(0,len(itemArray)):
+        for j in range(0,len(itemArray)):
+            if (keyboard.is_pressed("*")): 
+                print("STOP")
+                exit()
+            if len(itemArray[i][j]) > 0:
+                #print(itemArray[i][j])
+                getWrittenCommand(itemArray[i][j],i,j)
+
     print("=== This took " + str(time.time() - mytime) + " seconds ===")
     exit()
 
-starting = readCoordinates([],[])
+starting = readCoordinates([1,1],[])
 current = [starting[0],starting[1],starting[2],starting[3]]
 #print(starting)
 # Code for building the image in Minecraft
