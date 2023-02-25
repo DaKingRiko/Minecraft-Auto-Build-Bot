@@ -394,7 +394,7 @@ def getSTLarray(filename,STLX,STLY,STLZ):
 
         #print("Errs {}".format(err))
         #print(pamounts)
-        limit = int(len(x) / (myw*myl*myh ))
+        limit = int(len(x) / (3*myw*myl*myh ))
         #print(limit)
         fin = numpy.zeros([myw,myl,myh])
         for i in range(0,myw):
@@ -440,7 +440,7 @@ else:
 if stl:
     if len(sys.argv) >= 7:
         #print(sys.argv)
-        file = sys.argv[2] + ".stl"
+        file = "assets/" + sys.argv[2] + ".stl"
         STLX = int(sys.argv[3])
         STLY = int(sys.argv[4])
         STLZ = int(sys.argv[5])
@@ -471,7 +471,7 @@ if stl:
                 #print("i {} j {} k {} val {}".format(i,j,k,stlArr[i,j,k] ))
                 if stlArr[i,j,k] == 1:
                     #print("heya")
-                    getWrittenCommand(STL_BLOCK,i,j,k + 4,useDict=False)
+                    getWrittenCommand(STL_BLOCK,i,k,j + 7,useDict=False) # i j k to i k j
 
     print("=== This took " + str(time.time() - mytime) + " seconds ===")
     exit()
