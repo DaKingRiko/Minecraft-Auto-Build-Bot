@@ -1,4 +1,4 @@
-# Minecraft Bot 
+# King_Riko Minecraft Bot 
 
 ## Prerequisites
 
@@ -9,9 +9,13 @@ pip install keyboard
 pip install pyautogui
 pip install pillow
 pip install pytesseract
+pip install stl
+pip install mpl_toolkits
+pip install matplotlib 
+pip install numpy
 ```
 
-## How to Use
+## How to Use 2D Bot
 
 If you are using this on windows, running any of this code on WSL will NOT work. Use powershell instead.
 
@@ -22,7 +26,7 @@ The coordinates are located on line 178 in variable im1. Take a screenshot and f
 
 1. Open a powershell in the folder that has all the code
 
-2. run 
+2. Run 
 
    ```bash
    python .\Build_Bot <MINECRAFT BUILD SIZE> <IMAGE NAME> <BACKGROUND REMOVAL>
@@ -55,5 +59,26 @@ Very rarely, The bot might randomly miss a block or stop working all-together du
 
 8. The bot should be done, and the program will end
 
+## How to Use 3D Bot
+
+0. Open a powershell in the folder that has all the code
+
+1. Run 
+
+   ```bash
+   python .\Build_Bot.py -stl <NAME OF STL FILE> <WIDTH> <HEIGHT> <LENGTH> <NAME OF BLOCK TO PLACE>
+   # Example:
+   python .\Build_bot.py -stl Mewtwo 32 56 42 purpur_block
+   ```
+2. Go into Minecraft and press '~' to start the building. Keep in mind the 3D print will be made in relative position to your character
+(It will be built in the positive X, positive Y and positive Z directions)
+
+3. Wait for bot to be done. This might take a while if the build is massive. A 30x50x40 takes about 10 minutes to complete.
+
+## Questions?
+
 If you have any questions come into my twitch chat and ask me directly, I am happy to answer any questions:
 https://www.twitch.tv/King_Riko
+
+Want to see videos explaining how both parts work? Click below:
+https://www.youtube.com/watch?v=uHy2KgzTGWw
