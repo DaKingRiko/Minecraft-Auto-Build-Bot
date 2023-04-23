@@ -470,7 +470,6 @@ if stl:
                     exit()
                 #print("i {} j {} k {} val {}".format(i,j,k,stlArr[i,j,k] ))
                 if stlArr[i,j,k] == 1:
-                    #print("heya")
                     getWrittenCommand(STL_BLOCK,i,k,j + 7,useDict=False) # i j k to i k j
 
     print("=== This took " + str(time.time() - mytime) + " seconds ===")
